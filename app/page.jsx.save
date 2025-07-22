@@ -1,0 +1,91 @@
+'use client'
+
+import { useState } from 'react'
+import { saveAs } from 'file-saver'
+import Papa from 'papaparse'
+import { BASE_PROMPT } from './config/prompts'
+import CustomizationInput from './components/CustomizationInput'
+
+export default function Home() {
+  const [csvData, setCsvData] = useState(null)
+  const [customPrompt, setCustomPrompt] = useState('')
+  const [generatedIntro, setGeneratedIntro] = useState('')
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0]
+    Papa.parse(file, {
+      header: true,
+      complete: (results) => setCsvData(results.data),
+    })
+  }
+
+  const generateIntro = async () => {
+    if (!csvData) {
+      alert('Please upload CSV first.')
+      return
+    }
+
+    const finalPrompt = customPrompt.trim()
+      ? `${BASE_PROMPT}\n\nAdditional context:\n${customPrompt}`
+      : BASE_PROMPT
+
+    const response = await fetch('/api/generate-intro', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: finalPrompt,
+        data: csvData,
+      }),
+    })
+
+    const result = await response.json()
+    const lines = result.intro.split('\n').filter(Boolean)
+    setGeneratedIntro(lines)
+  }
+
+return (
+const handleDownload = () => {
+  if (!csvData || !generatedIntro.length) return
+
+  const csv = Papa.unparse(
+    csvData.map((row, i) => ({
+      ...row,
+      intro: generatedIntro[i] || '',
+    }))
+  )
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  saveAs(blob, 'generated-intros.csv')
+}
+  <div className="p-8 max-w-xl mx-auto">
+    <input
+      type="file"
+      accept=".csv"
+      onChange={handleFileUpload}
+      className="mb-4 block"
+    />
+    
+    <CustomizationInput
+      customPrompt={customPrompt}
+      setCustomPrompt={setCustomPrompt}
+    />
+
+    <button
+      onClick={generateIntro}
+      className="mt-4 bg-purple-500 text-white py-2 px-4 rounded"
+    >
+      Generate Intro 🚀
+    </button>
+
+    {Array.isArray(generatedIntro) && generatedIntro.map((text, idx) => (
+      <div key={idx} className="bg-white p-4 my-2 rounded shadow">   
+        {text}   
+      </div>   
+    ))}
+
+  </div> //
+)
+}
+

@@ -1,0 +1,118 @@
+'use client';
+
+import { useState } from 'react';
+import Papa from 'papaparse';
+import { Parser } from 'json2csv';
+
+export default function Home() {
+  const [fileName, setFileName] = useState('');
+  const [csvData, setCsvData] = useState<any[]>([]);
+  const [intros, setIntros] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setFileName(file.name);
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (result) => {
+        setCsvData(result.data);
+        console.log('CSV прочитан:', result.data);
+      },
+    });
+  };
+
+  const handleGenerate = async () => {
+    if (csvData.length === 0) return;
+    setLoading(true);
+    try {
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(csvData),
+      });
+      const data = await response.json();
+      setIntros(data);
+    } catch (error) {
+       console.error('Ошибка:', error);
+    } finally {      setLoading(false);
+    }
+  };
+
+  const handleDownload = () => {
+    if (intros.length === 0) return;
+
+    const parser = new Parser();
+    const csv = parser.parse(intros);
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'generated_intros.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <main style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
+      <h1>🔥 Ntage App запущено!</h1>
+      <p>Загрузи CSV и мы всё сделаем 💼</p>
+
+      <input
+        type="file"
+        accept=".csv"
+        onChange={handleFileChange}
+        style={{ marginTop: '1rem' }}
+      />
+
+      {fileName && <p style={{ marginTop: '1rem' }}>✅ Загружен: {fileName}</p>}
+
+      {csvData.length > 0 && (
+        <div style={{ marginTop: '2rem' }}>
+          <h2>📄 Превью CSV:</h2>
+          <pre style={{ background: '#f0f0f0', padding: '1rem', overflowX: 'auto' }}>
+            {JSON.stringify(csvData.slice(0, 3), null, 2)}
+          </pre>
+        </div>
+      )}
+
+      {csvData.length > 0 && (
+        <button
+          onClick={handleGenerate}
+          style={{
+            marginTop: '1rem',
+            padding: '0.5rem 1rem',
+            background: '#0070f3',
+            color: '#fff',
+            borderRadius: '4px',
+            border: 'none',
+            cursor: 'pointer'
+          }}
+        >
+          {loading ? 'Генерируем...' : '🚀 Сгенерировать интро'}
+        </button>
+      )}
+
+      {intros.length > 0 && (
+        <>
+          <button
+            onClick={handleDownload}
+            style={{
+              marginTop: '1rem',
+              padding: '0.5rem 1rem',
+              background: '#28a745',
+              color: '#fff',
+              borderRadius: '4px',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            💾 Скачать CSV
+          </button
