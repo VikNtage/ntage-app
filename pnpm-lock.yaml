@@ -18,7 +18,7 @@ importers:
         specifier: ^5.8.2
         version: 5.8.2
       papaparse:
-        specifier: ^5.5.3
+        specifier: 5.5.3
         version: 5.5.3
       react:
         specifier: 18.2.0
