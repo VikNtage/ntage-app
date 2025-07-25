@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import Papa from "papaparse";
 import { OpenAI } from "openai";
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
+import {
+  ChatCompletionUserMessageParam,
+  ChatCompletionSystemMessageParam,
+} from "openai/resources/chat/completions";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -26,10 +29,9 @@ export async function POST(req: NextRequest) {
   const results: { intro: string }[] = [];
 
   for (const row of data) {
-    const finalPrompt = prompt
-      .replace(/\{\{([^}]+)\}\}/g, (_, key) => row[key.trim()] || "");
+    const finalPrompt = prompt.replace(/\{\{([^}]+)\}\}/g, (_, key) => row[key.trim()] || "");
 
-    const messages: ChatCompletionMessageParam[] = [
+    const messages: (ChatCompletionUserMessageParam | ChatCompletionSystemMessageParam)[] = [
       {
         role: "system",
         content: "You generate short, warm intro lines for cold outreach based on available lead data.",
