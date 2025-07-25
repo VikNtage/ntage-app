@@ -1,4 +1,2 @@
-node_modules/
-node_modules/
-.env.local
-.env 2.local
+.DS_Store
+.next/
