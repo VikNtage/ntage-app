@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Papa from "papaparse";
 import { OpenAI } from "openai";
-import {
-  ChatCompletionUserMessageParam,
-  ChatCompletionSystemMessageParam,
-} from "openai/resources/chat/completions";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -20,8 +17,7 @@ export async function POST(req: NextRequest) {
   }
 
   const text = await file.text();
-
-  const { data } = Papa.parse(text, {
+  const { data } = Papa.parse<Record<string, string>>(text, {
     header: true,
     skipEmptyLines: true,
   });
@@ -31,7 +27,8 @@ export async function POST(req: NextRequest) {
   for (const row of data) {
     const finalPrompt = prompt.replace(/\{\{([^}]+)\}\}/g, (_, key) => row[key.trim()] || "");
 
-    const messages: (ChatCompletionUserMessageParam | ChatCompletionSystemMessageParam)[] = [
+    // Здесь используем единый тип для всех сообщений
+    const messages: ChatCompletionMessageParam[] = [
       {
         role: "system",
         content: "You generate short, warm intro lines for cold outreach based on available lead data.",
