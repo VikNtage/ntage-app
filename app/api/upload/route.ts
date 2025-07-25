@@ -1,49 +1,61 @@
 import { NextRequest, NextResponse } from "next/server";
 import Papa from "papaparse";
-import OpenAI from "openai";
+import { OpenAI } from "openai";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
-  const file: File | null = formData.get("file") as unknown as File;
+  const file = formData.get("file") as File;
   const prompt = formData.get("prompt") as string;
 
-  if (!file) {
-    return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+  if (!file || !prompt) {
+    return NextResponse.json({ error: "Missing file or prompt" }, { status: 400 });
   }
 
   const text = await file.text();
-  const parsed = Papa.parse(text, {
+
+  const { data } = Papa.parse(text, {
     header: true,
     skipEmptyLines: true,
   });
 
-  const results = [];
+  const results: { intro: string }[] = [];
 
-  for (const row of parsed.data as any[]) {
-    const messages = [
+  for (const row of data) {
+    const finalPrompt = prompt
+      .replace(/\{\{([^}]+)\}\}/g, (_, key) => row[key.trim()] || "");
+
+    const messages: ChatCompletionMessageParam[] = [
       {
         role: "system",
-        content: prompt,
+        content: "You generate short, warm intro lines for cold outreach based on available lead data.",
       },
       {
         role: "user",
-        content: JSON.stringify(row),
+        content: finalPrompt,
       },
     ];
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
-      messages: messages,
+      messages,
       temperature: 0.7,
     });
 
-    const responseText = completion.choices[0]?.message?.content ?? "";
-    results.push({ ...row, intro: responseText });
+    const intro = completion.choices[0].message.content || "";
+    results.push({ intro });
   }
 
-  return NextResponse.json(results);
+  const csv = Papa.unparse(results);
+
+  return new NextResponse(csv, {
+    headers: {
+      "Content-Type": "text/csv",
+      "Content-Disposition": "attachment; filename=intros.csv",
+    },
+  });
 }
