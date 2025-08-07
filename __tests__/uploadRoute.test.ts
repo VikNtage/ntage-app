@@ -1,11 +1,10 @@
 /**
  * __tests__/uploadRoute.test.ts
- * Интеграционный тест для POST /api/upload с моками OpenAI SDK
+ * Интеграционный тест для POST /api/upload, адаптирован под App Router
  */
 
-import request from 'supertest'
-import { createServer } from 'http'
-import route from '../app/api/upload/route'  // скорректируйте путь, если у вас .ts-маршрут лежит иначе
+import { POST } from '../app/api/upload/route';
+import { NextResponse } from 'next/server';
 
 // Мокаем официальный SDK OpenAI
 jest.mock('openai', () => ({
@@ -18,37 +17,45 @@ jest.mock('openai', () => ({
       }
     }
   }))
-}))
+}));
 
 describe('POST /api/upload', () => {
-  let server: any
+  it('должен возвращать 200 и сгенерированное интро CSV', async () => {
+    // Подготавливаем «файл» и «prompt»
+    const csvRow = 'firstName,lastName,title,company\nJohn,Doe,CEO,Acme Corp';
+    const mockFile = { text: jest.fn().mockResolvedValue(csvRow) };
+    const mockPrompt = 'Base prompt';
+    const mockReq = {
+      formData: jest.fn().mockResolvedValue({
+        get: (key: string) => {
+          if (key === 'file') return mockFile;
+          if (key === 'prompt') return mockPrompt;
+          return undefined;
+        }
+      })
+    } as any;
 
-  beforeAll(() => {
-    server = createServer((req, res) => route(req, res))
-  })
+    // Вызываем наш POST-хэндлер напрямую
+    const response = await POST(mockReq);
+    expect(response.status).toBe(200);
 
-  afterAll(() => {
-    server.close()
-  })
+    const text = await response.text();
+    // В CSV ожидаем нашу «Test Intro»
+    expect(text).toContain('Test Intro');
+  });
 
-  it('должен возвращать 200 и сгенерированное интро', async () => {
-    const csvRow = 'firstName,lastName,title,company\nJohn,Doe,CEO,Acme Corp'
-    const response = await request(server)
-      .post('/api/upload')
-      .field('prompt', 'Base prompt')
-      .attach('file', Buffer.from(csvRow), 'row.csv')
+  it('должен возвращать 400 при отсутствии файла или prompt', async () => {
+    const mockReq = {
+      formData: jest.fn().mockResolvedValue({
+        get: () => undefined
+      })
+    } as any;
 
-    expect(response.status).toBe(200)
-    expect(response.text).toContain('Test Intro')
-  })
+    const response = await POST(mockReq);
+    expect(response.status).toBe(400);
 
-  it('должен возвращать 400 при отсутствии файла', async () => {
-    const response = await request(server)
-      .post('/api/upload')
-      .field('prompt', 'Anything')
-
-    expect(response.status).toBe(400)
-    expect(response.text).toMatch(/file/i)
-  })
-})
+    const json = await response.json();
+    expect(json).toEqual({ error: 'Missing file or prompt' });
+  });
+});
 
