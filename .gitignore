@@ -1,2 +1,10 @@
+.vercel
+pnpm-lock.yaml
+.next
+node_modules
+.env*
+*.local
+*.log
 .DS_Store
-.next/
+coverage
+*.bak

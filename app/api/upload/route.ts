@@ -1,7 +1,15 @@
+/**
+ * app/api/upload/route.ts
+ * Оптимизированный вариант с батчингом запросов к OpenAI
+ */
+
 import { NextRequest, NextResponse } from "next/server";
 import Papa from "papaparse";
 import { OpenAI } from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
+
+// Максимальное число параллельных запросов
+const CONCURRENCY = parseInt(process.env.OPENAI_CONCURRENCY || "5", 10);
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -23,15 +31,19 @@ export async function POST(req: NextRequest) {
   });
 
   const results: { intro: string }[] = [];
+  const rows = [...data];
 
-  for (const row of data) {
-    const finalPrompt = prompt.replace(/\{\{([^}]+)\}\}/g, (_, key) => row[key.trim()] || "");
+  // Обработка одной строки
+  async function processRow(row: Record<string, string>) {
+    const finalPrompt = prompt.replace(/\{\{([^}]+)\}\}/g, (_, key) =>
+      row[key.trim()] || ""
+    );
 
-    // Здесь используем единый тип для всех сообщений
     const messages: ChatCompletionMessageParam[] = [
       {
         role: "system",
-        content: "You generate short, warm intro lines for cold outreach based on available lead data.",
+        content:
+          "You generate short, warm intro lines for cold outreach based on available lead data.",
       },
       {
         role: "user",
@@ -45,12 +57,18 @@ export async function POST(req: NextRequest) {
       temperature: 0.7,
     });
 
-    const intro = completion.choices[0].message.content || "";
-    results.push({ intro });
+    return { intro: completion.choices[0].message.content || "" };
+  }
+
+  // Батчим по CONCURRENCY штук
+  while (rows.length) {
+    const batch = rows.splice(0, CONCURRENCY);
+    const promises = batch.map((row) => processRow(row));
+    const chunkResults = await Promise.all(promises);
+    results.push(...chunkResults);
   }
 
   const csv = Papa.unparse(results);
-
   return new NextResponse(csv, {
     headers: {
       "Content-Type": "text/csv",
@@ -58,3 +76,4 @@ export async function POST(req: NextRequest) {
     },
   });
 }
+
