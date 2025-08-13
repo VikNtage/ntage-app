@@ -22,9 +22,8 @@ async function withConcurrency<T, R>(
 
   const poolSize = Math.min(Math.max(limit, 1), Math.max(1, items.length));
   const workers = new Array(poolSize).fill(0).map(async () => {
-    while (true) {
+    for (; i < items.length; ) {
       const idx = i++;
-      if (idx >= items.length) break;
       results[idx] = await worker(items[idx], idx);
     }
   });
