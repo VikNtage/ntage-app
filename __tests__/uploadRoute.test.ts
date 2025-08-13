@@ -4,7 +4,6 @@
  */
 
 import { POST } from '../app/api/upload/route';
-import { NextResponse } from 'next/server';
 
 // Мокаем официальный SDK OpenAI
 jest.mock('openai', () => ({
@@ -33,7 +32,7 @@ describe('POST /api/upload', () => {
           return undefined;
         }
       })
-    } as any;
+    } as unknown;
 
     // Вызываем наш POST-хэндлер напрямую
     const response = await POST(mockReq);
@@ -49,7 +48,7 @@ describe('POST /api/upload', () => {
       formData: jest.fn().mockResolvedValue({
         get: () => undefined
       })
-    } as any;
+    } as unknown;
 
     const response = await POST(mockReq);
     expect(response.status).toBe(400);
